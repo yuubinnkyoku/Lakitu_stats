@@ -12,6 +12,8 @@ ACCENT_RED = (180, 20, 40)
 ACCENT_DARK_RED = (100, 10, 20)
 TEXT_COLOR = (255, 255, 255)
 
+FONT_PATH = os.path.join('fonts', 'RussoOne-Regular.ttf')
+
 def create_background():
     """Creates the geometric background."""
     img = Image.new('RGB', (WIDTH, HEIGHT), BG_COLOR)
@@ -81,6 +83,7 @@ def create_graph(data_points):
         spine.set_alpha(0.5)
 
     # Labels
+    # Use standard font for graph labels for now, or could load custom font in matplotlib
     ax.set_ylabel('MMR', color='white', fontsize=12, fontweight='bold')
     ax.set_xlabel('Events Played', color='white', fontsize=12, fontweight='bold')
     
@@ -97,17 +100,16 @@ def create_graph(data_points):
 
 def draw_text(draw, text, position, font_size=20, color=TEXT_COLOR, anchor="la", font_path=None):
     """Draws text with a given font."""
+    if font_path is None:
+        font_path = FONT_PATH
+
     try:
-        # Try to load a standard font if no path provided, or use default
-        if font_path:
-            font = ImageFont.truetype(font_path, font_size)
-        else:
-            # Try to find a system font (Windows)
-            try:
-                font = ImageFont.truetype("arial.ttf", font_size)
-            except IOError:
-                font = ImageFont.load_default()
-    except Exception:
+        font = ImageFont.truetype(font_path, font_size)
+    except IOError:
+        print(f"Warning: Could not load font at {font_path}, falling back to default.")
+        font = ImageFont.load_default()
+    except Exception as e:
+        print(f"Error loading font: {e}")
         font = ImageFont.load_default()
         
     draw.text(position, text, font=font, fill=color, anchor=anchor)
