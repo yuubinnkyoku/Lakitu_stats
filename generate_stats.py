@@ -1,6 +1,7 @@
 import os
 from PIL import Image, ImageDraw, ImageFont
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import numpy as np
 import io
 
@@ -83,12 +84,18 @@ def create_graph(data_points):
         spine.set_alpha(0.5)
 
     # Labels
-    # Use standard font for graph labels for now, or could load custom font in matplotlib
-    ax.set_ylabel('MMR', color='white', fontsize=12, fontweight='bold')
-    ax.set_xlabel('Events Played', color='white', fontsize=12, fontweight='bold')
+    # Load Custom Font
+    font_prop = fm.FontProperties(fname=FONT_PATH)
+    
+    ax.set_ylabel('MMR', color='white', fontsize=12, fontproperties=font_prop)
+    ax.set_xlabel('Events Played', color='white', fontsize=12, fontproperties=font_prop)
     
     # Tick params
     ax.tick_params(axis='both', colors='white', labelsize=10)
+    for label in ax.get_xticklabels():
+        label.set_fontproperties(font_prop)
+    for label in ax.get_yticklabels():
+        label.set_fontproperties(font_prop)
     
     # Save to buffer
     buf = io.BytesIO()
