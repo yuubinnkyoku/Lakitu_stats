@@ -188,9 +188,9 @@ def main():
 
     # MMR Gauge (Left Side)
     gauge_center = (400, 350)
-    draw_gauge(draw, gauge_center, 120, 14776, 20000)
-    draw_text(draw, "MMR", (400, 300), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "14776", (400, 350), font_size=80, anchor="mm")
+    draw_gauge(draw, gauge_center, 135, 14776, 20000)
+    draw_text(draw, "MMR", (400, 290), font_size=30, anchor="mm", color=(200, 200, 200))
+    draw_text(draw, "14776", (400, 360), font_size=70, anchor="mm")
 
     # Stats Columns
     # Left Column
