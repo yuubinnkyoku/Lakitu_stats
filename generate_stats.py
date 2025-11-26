@@ -143,16 +143,18 @@ def main():
     
     # Generate Graph
     # Simulate some data that looks like the image (rising trend)
-    # Start around 10500, end around 14500, with some noise
+    # Start around 10500, end around 14776, with some noise
     np.random.seed(42)
-    x = np.linspace(0, 164, 164)
+    # Events 2-167 means 166 events played? Or just 0 to 167 range. 
+    # Image x-axis goes up to 160+, so let's use 167 points.
+    x = np.linspace(0, 167, 167)
     # Base trend
     y = 10500 + (x * 25) 
     # Add noise/fluctuations
-    noise = np.cumsum(np.random.randn(164) * 50)
+    noise = np.cumsum(np.random.randn(167) * 50)
     y = y + noise
-    # Ensure it ends near 14558 as per image
-    y = y - (y[-1] - 14558)
+    # Ensure it ends near 14776 as per image
+    y = y - (y[-1] - 14776)
     
     graph_img = create_graph(y)
     
@@ -186,9 +188,9 @@ def main():
 
     # MMR Gauge (Left Side)
     gauge_center = (400, 350)
-    draw_gauge(draw, gauge_center, 120, 14558, 20000)
+    draw_gauge(draw, gauge_center, 120, 14776, 20000)
     draw_text(draw, "MMR", (400, 300), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "14558", (400, 350), font_size=80, anchor="mm")
+    draw_text(draw, "14776", (400, 350), font_size=80, anchor="mm")
 
     # Stats Columns
     # Left Column
@@ -212,11 +214,11 @@ def main():
     
     # Avg (24P)
     draw_text(draw, "Avg (24P)", (mid_x, start_y), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "87.4", (mid_x, start_y + 50), font_size=60, anchor="mm")
+    draw_text(draw, "87.6", (mid_x, start_y + 50), font_size=60, anchor="mm")
     
     # W-L
     draw_text(draw, "W-L", (mid_x, start_y + gap_y), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "118-48", (mid_x, start_y + gap_y + 50), font_size=60, anchor="mm")
+    draw_text(draw, "120-49", (mid_x, start_y + gap_y + 50), font_size=60, anchor="mm")
     
     # Largest Loss
     draw_text(draw, "Largest Loss", (mid_x, start_y + gap_y * 2), font_size=30, anchor="mm", color=(200, 200, 200))
@@ -227,7 +229,7 @@ def main():
     
     # Peak MMR
     draw_text(draw, "Peak MMR", (right_x, 300), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "14558", (right_x, 350), font_size=60, anchor="mm", color=ACCENT_RED)
+    draw_text(draw, "14776", (right_x, 350), font_size=60, anchor="mm", color=ACCENT_RED)
 
     # Top Score
     draw_text(draw, "Top Score", (right_x, start_y), font_size=30, anchor="mm", color=(200, 200, 200))
@@ -235,7 +237,7 @@ def main():
     
     # Events
     draw_text(draw, "Events", (right_x, start_y + gap_y), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "2-164", (right_x, start_y + gap_y + 50), font_size=60, anchor="mm")
+    draw_text(draw, "2-167", (right_x, start_y + gap_y + 50), font_size=60, anchor="mm")
     
     # Rank
     draw_text(draw, "Rank", (right_x, start_y + gap_y * 2), font_size=30, anchor="mm", color=(200, 200, 200))
