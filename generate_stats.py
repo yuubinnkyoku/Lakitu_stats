@@ -298,45 +298,76 @@ def draw_text(draw, text, position, font_size=20, color=TEXT_COLOR, anchor="la",
         
     draw.text(position, text, font=font, fill=color, anchor=anchor)
 
-def draw_gauge(draw, center, radius, value, max_value, color=ACCENT_RED):
-    """Draws the circular MMR gauge."""
+def draw_gauge(img, center, radius, value, max_value, color=ACCENT_RED):
+    """Draws the circular MMR gauge with anti-aliasing."""
+    # Supersampling factor
+    scale = 4
+    
+    # Calculate dimensions for the temporary image
+    width = 30
+    padding = 20
+    size = int(radius * 2 + padding)
+    
+    # Create high-res temporary image
+    temp_size = (size * scale, size * scale)
+    temp_img = Image.new('RGBA', temp_size, (0, 0, 0, 0))
+    temp_draw = ImageDraw.Draw(temp_img)
+    
+    # Calculate center in temp image
+    temp_center = (temp_size[0] // 2, temp_size[1] // 2)
+    temp_radius = radius * scale
+    temp_width = width * scale
+    
+    # Bounding box for arc
+    bbox = [
+        temp_center[0] - temp_radius,
+        temp_center[1] - temp_radius,
+        temp_center[0] + temp_radius,
+        temp_center[1] + temp_radius
+    ]
+    
     # Background arc (darker)
-    bbox = [center[0] - radius, center[1] - radius, center[0] + radius, center[1] + radius]
-    draw.arc(bbox, start=135, end=405, fill=(50, 10, 20), width=30)
+    temp_draw.arc(bbox, start=135, end=405, fill=(50, 10, 20), width=int(temp_width))
     
     # Progress arc
-    # Calculate angle based on value (dummy logic for visual match)
-    # The image shows a full arc, so we'll just draw the red arc
     start_angle = 135
     end_angle = 405
-    width = 30
-    draw.arc(bbox, start=start_angle, end=end_angle, fill=color, width=width)
+    temp_draw.arc(bbox, start=start_angle, end=end_angle, fill=color, width=int(temp_width))
 
     # Rounded caps
-    # Convert angles to radians
-    # PIL angles are clockwise from 3 o'clock (0 degrees)
-    # Math angles are usually counter-clockwise from 3 o'clock, but here we just need to match PIL's coordinate system
-    # x = cx + r * cos(theta)
-    # y = cy + r * sin(theta)
-    
     def get_point(angle_deg):
         angle_rad = math.radians(angle_deg)
-        # Pillow's arc with width is drawn *inside* the bbox, so the center of the stroke
-        # is at radius - width / 2
-        effective_radius = radius - width / 2
-        x = center[0] + effective_radius * math.cos(angle_rad)
-        y = center[1] + effective_radius * math.sin(angle_rad)
+        # Match original logic: effective_radius = radius - width / 2
+        effective_radius = temp_radius - temp_width / 2
+        x = temp_center[0] + effective_radius * math.cos(angle_rad)
+        y = temp_center[1] + effective_radius * math.sin(angle_rad)
         return (x, y)
 
     # Start cap
     start_point = get_point(start_angle)
-    draw.ellipse([start_point[0] - width/2, start_point[1] - width/2, 
-                  start_point[0] + width/2, start_point[1] + width/2], fill=color)
+    cap_radius = temp_width / 2
+    temp_draw.ellipse([start_point[0] - cap_radius, start_point[1] - cap_radius, 
+                       start_point[0] + cap_radius, start_point[1] + cap_radius], fill=color)
 
     # End cap
     end_point = get_point(end_angle)
-    draw.ellipse([end_point[0] - width/2, end_point[1] - width/2, 
-                  end_point[0] + width/2, end_point[1] + width/2], fill=color)
+    temp_draw.ellipse([end_point[0] - cap_radius, end_point[1] - cap_radius, 
+                       end_point[0] + cap_radius, end_point[1] + cap_radius], fill=color)
+                       
+    # Resize down
+    target_size = (size, size)
+    try:
+        resample_method = Image.Resampling.LANCZOS
+    except AttributeError:
+        resample_method = Image.LANCZOS
+        
+    temp_img = temp_img.resize(target_size, resample=resample_method)
+    
+    # Paste onto main image
+    paste_x = int(center[0] - size // 2)
+    paste_y = int(center[1] - size // 2)
+    
+    img.paste(temp_img, (paste_x, paste_y), temp_img)
 
 def main():
     # Create output directory if it doesn't exist
@@ -414,7 +445,7 @@ def main():
 
     # MMR Gauge (Left Side)
     gauge_center = (400, 350)
-    draw_gauge(draw, gauge_center, 135, 14776, 20000)
+    draw_gauge(bg, gauge_center, 135, 14776, 20000)
     draw_text(draw, "MMR", (400, 290), font_size=30, anchor="mm", color=(200, 200, 200))
     draw_text(draw, "14776", (400, 360), font_size=70, anchor="mm")
 
