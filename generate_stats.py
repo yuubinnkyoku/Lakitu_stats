@@ -17,135 +17,116 @@ TEXT_COLOR = (255, 255, 255)
 FONT_PATH = os.path.join('fonts', 'RussoOne-Regular.ttf')
 
 def create_background():
-    """Creates the geometric background using Perturbed 3-Family Line Arrangement."""
+    """Creates the geometric background using an Organically Warped Triangular Grid."""
     img = Image.new('RGB', (WIDTH, HEIGHT), BG_COLOR)
     draw = ImageDraw.Draw(img, 'RGBA')
 
-    from shapely.geometry import LineString, Polygon, MultiPolygon, GeometryCollection
-    from shapely.ops import unary_union, polygonize
+    import random
 
-    # 1. Generate Lines (3 Families)
-    lines = []
+    # 1. Define Grid Topology (Regular Triangular Grid)
+    # We generate a grid, but then we WARP the vertices organically.
     
-    # Canvas bounds for clipping
-    canvas_box = (0, 0, WIDTH, HEIGHT)
-    canvas_poly = Polygon([(0, 0), (WIDTH, 0), (WIDTH, HEIGHT), (0, HEIGHT)])
+    # Grid parameters
+    # Fewer rows/cols for larger triangles
+    rows = 8
+    cols = 8
     
-    # Extended bounds to ensure lines cover the canvas
-    margin = 600
-    ext_min_x, ext_min_y = -margin, -margin
-    ext_max_x, ext_max_y = WIDTH + margin, HEIGHT + margin
+    # Base scale
+    scale = 500
     
-    # Parameters for "Organic" feel
-    # Base angles (shifted from 0, 60, 120 to look less mechanical)
-    base_rotation = np.random.uniform(-15, 15)
-    angles = [0 + base_rotation, 60 + base_rotation, 120 + base_rotation]
+    # Random seeds for organic distortion
+    seed_x = random.uniform(0, 100)
+    seed_y = random.uniform(0, 100)
+    seed_rot = random.uniform(0, 100)
     
-    # Spacing
-    avg_spacing = 250
+    # Global rotation/offset to break alignment
+    base_rotation = random.uniform(-0.3, 0.3)
+    offset_x = WIDTH / 2
+    offset_y = HEIGHT / 2
     
-    for base_angle in angles:
-        # Convert to radians
-        theta = math.radians(base_angle)
+    def get_organic_offset(x, y):
+        """Calculates a smooth, organic displacement for a point (x, y)."""
+        # Combine multiple sine waves with different frequencies and phases
+        # to simulate a "liquid" or "cloth-like" distortion.
         
-        # Normal vector
-        nx = math.cos(theta)
-        ny = math.sin(theta)
+        # Large low-frequency waves (The "Flow")
+        dx = math.sin(x / 1200 + seed_x) * 200 + math.cos(y / 1500 + seed_y) * 200
+        dy = math.cos(x / 1300 + seed_y) * 200 + math.sin(y / 1100 + seed_x) * 200
         
-        # Tangent vector (direction of line)
-        tx = -ny
-        ty = nx
+        # Medium frequency waves (The "Ripple")
+        dx += math.sin(x / 600 + seed_y * 2) * 80
+        dy += math.cos(y / 700 + seed_x * 2) * 80
         
-        # Determine range of offsets to cover the extended canvas
-        # Project corners to normal axis to find min/max offset
-        corners = [
-            (ext_min_x, ext_min_y), (ext_max_x, ext_min_y),
-            (ext_max_x, ext_max_y), (ext_min_x, ext_max_y)
-        ]
-        projections = [x * nx + y * ny for x, y in corners]
-        min_p = min(projections)
-        max_p = max(projections)
+        # Small jitter (The "Imperfection")
+        dx += math.sin(x / 200 + y / 200) * 20
+        dy += math.cos(x / 200 - y / 200) * 20
         
-        # Generate lines along the normal axis
-        current_p = min_p
-        while current_p < max_p:
-            # Add random jitter to spacing
-            spacing = avg_spacing * np.random.uniform(0.7, 1.3)
-            current_p += spacing
-            
-            # Add random jitter to angle for this specific line
-            line_angle_jitter = math.radians(np.random.uniform(-2, 2))
-            line_theta = theta + line_angle_jitter
-            lnx = math.cos(line_theta)
-            lny = math.sin(line_theta)
-            ltx = -lny
-            lty = lnx
-            
-            # Point on line
-            px = current_p * lnx
-            py = current_p * lny
-            
-            # Create long line segment
-            p1 = (px + ltx * 4000, py + lty * 4000)
-            p2 = (px - ltx * 4000, py - lty * 4000)
-            
-            lines.append(LineString([p1, p2]))
+        return dx, dy
 
-    # 2. Polygonize
-    # Union all lines to find intersections and split them
-    all_lines = unary_union(lines)
+    def transform_point(i, j):
+        # 1. Base Hexagonal/Triangular Grid Coordinates
+        # Staggered rows
+        x = (i + (0.5 if j % 2 else 0)) * scale
+        y = j * (scale * math.sqrt(3) / 2)
+        
+        # Center the grid roughly before transform
+        x -= (cols * scale) / 2
+        y -= (rows * scale * 0.8) / 2
+        
+        # 2. Apply Rotation (Base orientation)
+        xr = x * math.cos(base_rotation) - y * math.sin(base_rotation)
+        yr = x * math.sin(base_rotation) + y * math.cos(base_rotation)
+        
+        # 3. Apply Organic Distortion
+        # We use the rotated coordinates to sample the distortion field
+        dx, dy = get_organic_offset(xr, yr)
+        
+        final_x = offset_x + xr + dx
+        final_y = offset_y + yr + dy
+        
+        return (final_x, final_y)
+
+    # Generate Polygons
+    polygons = []
     
-    # Create polygons from the unioned lines
-    polys = list(polygonize(all_lines))
+    # Generate a slightly larger grid to ensure coverage after distortion
+    for j in range(-2, rows + 2):
+        for i in range(-2, cols + 2):
+            pt_tl = transform_point(i, j)     # Top-Left
+            pt_tr = transform_point(i+1, j)   # Top-Right
+            
+            if j % 2 == 0:
+                pt_bl = transform_point(i, j+1)
+                pt_br = transform_point(i+1, j+1)
+                poly1 = [pt_tl, pt_tr, pt_bl]
+                poly2 = [pt_tr, pt_br, pt_bl]
+            else:
+                pt_bl = transform_point(i, j+1)
+                pt_br = transform_point(i+1, j+1)
+                poly1 = [pt_tl, pt_tr, pt_br]
+                poly2 = [pt_tl, pt_br, pt_bl]
+
+            polygons.append(poly1)
+            polygons.append(poly2)
+
+    # Filter polygons that are on screen
+    visible_polygons = []
+    margin = 200 # Large margin because distortion can pull things in
     
-    # 3. Filter and Triangulate
-    final_polygons = []
-    
-    for poly in polys:
-        # Intersect with canvas
-        if not poly.intersects(canvas_poly):
+    for poly in polygons:
+        xs = [p[0] for p in poly]
+        ys = [p[1] for p in poly]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        
+        # Check intersection with screen rectangle
+        if max_x < -margin or min_x > WIDTH + margin or max_y < -margin or min_y > HEIGHT + margin:
             continue
             
-        intersection = poly.intersection(canvas_poly)
-        
-        # Handle MultiPolygon or GeometryCollection results
-        parts = []
-        if isinstance(intersection, Polygon):
-            parts.append(intersection)
-        elif isinstance(intersection, (MultiPolygon, GeometryCollection)):
-            for geom in intersection.geoms:
-                if isinstance(geom, Polygon):
-                    parts.append(geom)
-                    
-        for part in parts:
-            if part.is_empty or part.area < 100: # Filter tiny slivers
-                continue
-                
-            # Triangulate if not a triangle (approximate check by vertex count)
-            # Simplify slightly to remove collinear points that might increase vertex count
-            simplified = part.simplify(1.0)
-            coords = list(simplified.exterior.coords)
-            if coords[0] == coords[-1]:
-                coords.pop()
-                
-            if len(coords) > 3:
-                # Simple fan triangulation or ear clipping
-                # Since these are convex polygons (from line arrangement), fan from first vertex works well enough
-                # OR split by shortest diagonal for better shape
-                
-                # Let's just use a simple fan for robustness as they are convex
-                p0 = coords[0]
-                for i in range(1, len(coords) - 1):
-                    p1 = coords[i]
-                    p2 = coords[i+1]
-                    triangle = Polygon([p0, p1, p2])
-                    if not triangle.is_empty and triangle.area > 10:
-                        final_polygons.append(triangle)
-            else:
-                final_polygons.append(part)
+        visible_polygons.append(poly)
 
-    # Helper to draw gradient polygon (Same as before)
-    def draw_gradient_polygon(draw_obj, poly_coords, color_start, color_end, steps=20):
+    # Helper to draw gradient polygon
+    def draw_gradient_polygon(draw_obj, poly_coords, color_start, color_end, steps=40):
         # Centroid
         cx = sum(p[0] for p in poly_coords) / len(poly_coords)
         cy = sum(p[1] for p in poly_coords) / len(poly_coords)
@@ -168,21 +149,17 @@ def create_background():
             if len(current_points) >= 3:
                 draw_obj.polygon(current_points, fill=color)
 
-    # 4. Draw Polygons
+    # 3. Draw Polygons
     c_start = (0, 0, 0)
-    c_end = (34, 32, 33)
+    c_end = (34, 32, 33) # #222021
     
-    for poly in final_polygons:
-        coords = list(poly.exterior.coords)
-        if coords[0] == coords[-1]:
-            coords.pop()
-            
-        draw_gradient_polygon(draw, coords, c_start, c_end, steps=20)
+    for poly in visible_polygons:
+        draw_gradient_polygon(draw, poly, c_start, c_end, steps=40)
         
         # Draw Tapered Edges
-        for i in range(len(coords)):
-            p_start = coords[i]
-            p_end = coords[(i + 1) % len(coords)]
+        for i in range(len(poly)):
+            p_start = poly[i]
+            p_end = poly[(i + 1) % len(poly)]
             
             # Vector
             vx = p_end[0] - p_start[0]
@@ -199,7 +176,7 @@ def create_background():
             my = (p_start[1] + p_end[1]) / 2
             
             # Max width at center
-            max_width = 2.0
+            max_width = 3.0
             
             poly_shape = [
                 p_start,
@@ -210,7 +187,7 @@ def create_background():
             
             draw.polygon(poly_shape, fill=ACCENT_RED)
 
-    # 5. Subtle Overlay/Vignette
+    # 4. Subtle Overlay/Vignette
     draw.polygon([(0, 0), (400, 0), (0, 400)], fill=(0, 0, 0, 120))
     draw.polygon([(WIDTH, 0), (WIDTH-400, 0), (WIDTH, 400)], fill=(0, 0, 0, 120))
     draw.polygon([(0, HEIGHT), (0, HEIGHT-400), (400, HEIGHT)], fill=(0, 0, 0, 120))
