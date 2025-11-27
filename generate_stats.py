@@ -10,14 +10,30 @@ import math
 WIDTH = 1920
 HEIGHT = 1080
 BG_COLOR = (5, 5, 5)  # Darker black
-ACCENT_RED = (180, 20, 40)
-ACCENT_DARK_RED = (100, 10, 20)
 TEXT_COLOR = (255, 255, 255)
+
+# Default Colors (can be overridden via config)
+DEFAULT_ACCENT_COLOR = (180, 20, 40)
+DEFAULT_ACCENT_DARK_COLOR = (100, 10, 20)
+DEFAULT_BG_GRADIENT_START = (0, 0, 0)
+DEFAULT_BG_GRADIENT_END = (64, 62, 63)
+DEFAULT_GRAPH_COLOR_START = (100, 100, 255)  # Purple/Blue
+DEFAULT_GRAPH_COLOR_END = (255, 50, 50)  # Red
+DEFAULT_POSITIVE_COLOR = (100, 255, 100)  # Green for gains
+DEFAULT_NEGATIVE_COLOR = (255, 80, 80)  # Red for losses
+DEFAULT_LABEL_COLOR = (200, 200, 200)  # Gray for labels
 
 FONT_PATH = os.path.join('fonts', 'RussoOne-Regular.ttf')
 
-def create_background():
+def create_background(accent_color=None, bg_gradient_start=None, bg_gradient_end=None):
     """Creates the geometric background using an Organically Warped Triangular Grid."""
+    if accent_color is None:
+        accent_color = DEFAULT_ACCENT_COLOR
+    if bg_gradient_start is None:
+        bg_gradient_start = DEFAULT_BG_GRADIENT_START
+    if bg_gradient_end is None:
+        bg_gradient_end = DEFAULT_BG_GRADIENT_END
+    
     img = Image.new('RGB', (WIDTH, HEIGHT), BG_COLOR)
     draw = ImageDraw.Draw(img, 'RGBA')
 
@@ -152,8 +168,8 @@ def create_background():
                 draw_obj.polygon(current_points, fill=color)
 
     # 3. Draw Polygons
-    c_start = (0, 0, 0)
-    c_end = (64, 62, 63)
+    c_start = bg_gradient_start
+    c_end = bg_gradient_end
     
     for poly in visible_polygons:
         draw_gradient_polygon(draw, poly, c_start, c_end, steps=40)
@@ -187,7 +203,7 @@ def create_background():
                 (mx - nx * max_width, my - ny * max_width)
             ]
             
-            draw.polygon(poly_shape, fill=ACCENT_RED)
+            draw.polygon(poly_shape, fill=accent_color)
 
     # 4. Subtle Overlay/Vignette
     draw.polygon([(0, 0), (400, 0), (0, 400)], fill=(0, 0, 0, 120))
@@ -197,8 +213,56 @@ def create_background():
 
     return img
 
-def create_graph(data_points):
-    """Creates the MMR graph using matplotlib."""
+def create_graph(data_points, graph_color_start=None, graph_color_end=None, section_size=1000, section_colors=None):
+    """Creates the MMR graph using matplotlib with colors changing by y-value sections.
+    
+    Args:
+        data_points: List of MMR values
+        graph_color_start: Start color for fallback gradient (RGB tuple 0-255)
+        graph_color_end: End color for fallback gradient (RGB tuple 0-255)
+        section_size: Size of each section for color change (default: 1000)
+        section_colors: Optional list of colors for each section (RGB tuples 0-255).
+                       If None, uses a default color palette.
+    """
+    if graph_color_start is None:
+        graph_color_start = DEFAULT_GRAPH_COLOR_START
+    if graph_color_end is None:
+        graph_color_end = DEFAULT_GRAPH_COLOR_END
+    
+    # Default section colors palette (vibrant, distinguishable colors)
+    if section_colors is None:
+        section_colors = [
+            (100, 100, 255),   # Blue (0-999)
+            (100, 200, 255),   # Light Blue (1000-1999)
+            (100, 255, 200),   # Cyan (2000-2999)
+            (100, 255, 100),   # Green (3000-3999)
+            (200, 255, 100),   # Yellow-Green (4000-4999)
+            (255, 255, 100),   # Yellow (5000-5999)
+            (255, 200, 100),   # Orange (6000-6999)
+            (255, 150, 100),   # Light Orange (7000-7999)
+            (255, 100, 100),   # Red (8000-8999)
+            (255, 100, 150),   # Pink (9000-9999)
+            (255, 100, 200),   # Magenta (10000-10999)
+            (200, 100, 255),   # Purple (11000-11999)
+            (150, 100, 255),   # Blue-Purple (12000-12999)
+            (100, 150, 255),   # Sky Blue (13000-13999)
+            (100, 200, 200),   # Teal (14000-14999)
+            (150, 255, 150),   # Light Green (15000-15999)
+            (255, 200, 150),   # Peach (16000-16999)
+            (255, 150, 200),   # Light Pink (17000-17999)
+            (200, 150, 255),   # Lavender (18000-18999)
+            (150, 200, 255),   # Light Sky Blue (19000-19999)
+        ]
+    
+    def get_section_color(y_value):
+        """Get the color for a given y value based on its section."""
+        section_index = int(y_value // section_size)
+        # Cycle through colors if we exceed the palette
+        color_index = section_index % len(section_colors)
+        color = section_colors[color_index]
+        # Normalize to 0-1 for matplotlib
+        return (color[0] / 255, color[1] / 255, color[2] / 255)
+    
     # Set style to dark
     plt.style.use('dark_background')
     
@@ -220,22 +284,11 @@ def create_graph(data_points):
     x = range(len(data_points))
     y = data_points
     
-    # Create gradient line effect (simulated by plotting multiple colored segments or just a colored line)
-    # For simplicity and style matching, we'll use a purple-to-red gradient look
-    # Matplotlib doesn't support gradient lines natively easily, so we'll use a custom colored line
-    # or just a solid color that matches the theme.
-    # The image shows a line transitioning from purple/blue to red.
-    
-    # We can simulate this by plotting segments
+    # Create colored line segments based on y-value sections
     for i in range(len(x) - 1):
-        # Interpolate color
-        progress = i / len(x)
-        # Start color (Purple/Blue): (100, 100, 255) -> (0.4, 0.4, 1.0)
-        # End color (Red): (255, 50, 50) -> (1.0, 0.2, 0.2)
-        r = 0.4 + (0.6 * progress)
-        g = 0.4 - (0.2 * progress)
-        b = 1.0 - (0.8 * progress)
-        color = (r, g, b)
+        # Use the average y value of the segment to determine color
+        avg_y = (y[i] + y[i + 1]) / 2
+        color = get_section_color(avg_y)
         
         ax.plot(x[i:i+2], y[i:i+2], color=color, linewidth=2)
 
@@ -300,8 +353,13 @@ def draw_text(draw, text, position, font_size=20, color=TEXT_COLOR, anchor="la",
         
     draw.text(position, text, font=font, fill=color, anchor=anchor)
 
-def draw_gauge(img, center, radius, value, max_value, color=ACCENT_RED):
+def draw_gauge(img, center, radius, value, max_value, color=None, bg_color=None):
     """Draws the circular MMR gauge with anti-aliasing."""
+    if color is None:
+        color = DEFAULT_ACCENT_COLOR
+    if bg_color is None:
+        bg_color = DEFAULT_ACCENT_DARK_COLOR
+    
     # Supersampling factor
     scale = 4
     
@@ -329,7 +387,6 @@ def draw_gauge(img, center, radius, value, max_value, color=ACCENT_RED):
     ]
     
     # Background arc (darker/remaining)
-    bg_color = (100, 40, 50) # Light red for remaining part
     temp_draw.arc(bbox, start=135, end=405, fill=bg_color, width=int(temp_width))
     
     # Progress arc
@@ -394,8 +451,19 @@ def draw_stats_card(config):
     if not os.path.exists('output'):
         os.makedirs('output')
 
+    # Get color settings from config (with defaults)
+    accent_color = config.get('accent_color', DEFAULT_ACCENT_COLOR)
+    accent_dark_color = config.get('accent_dark_color', DEFAULT_ACCENT_DARK_COLOR)
+    bg_gradient_start = config.get('bg_gradient_start', DEFAULT_BG_GRADIENT_START)
+    bg_gradient_end = config.get('bg_gradient_end', DEFAULT_BG_GRADIENT_END)
+    graph_color_start = config.get('graph_color_start', DEFAULT_GRAPH_COLOR_START)
+    graph_color_end = config.get('graph_color_end', DEFAULT_GRAPH_COLOR_END)
+    positive_color = config.get('positive_color', DEFAULT_POSITIVE_COLOR)
+    negative_color = config.get('negative_color', DEFAULT_NEGATIVE_COLOR)
+    label_color = config.get('label_color', DEFAULT_LABEL_COLOR)
+
     # Generate background
-    bg = create_background()
+    bg = create_background(accent_color, bg_gradient_start, bg_gradient_end)
     draw = ImageDraw.Draw(bg)
     
     # Generate Graph
@@ -404,7 +472,11 @@ def draw_stats_card(config):
         # Default dummy data if none provided
         graph_data = np.linspace(10000, 15000, 100)
 
-    graph_img, plot_box = create_graph(graph_data)
+    # Section settings for graph coloring
+    section_size = config.get('graph_section_size', 1000)
+    section_colors = config.get('graph_section_colors', None)
+
+    graph_img, plot_box = create_graph(graph_data, graph_color_start, graph_color_end, section_size, section_colors)
     
     # Position for the graph
     graph_x, graph_y = 950, 350
@@ -463,8 +535,8 @@ def draw_stats_card(config):
     gauge_center = (400, 350)
     mmr = config.get('mmr', 0)
     max_mmr = config.get('max_mmr_gauge', 20000)
-    draw_gauge(bg, gauge_center, 135, mmr, max_mmr)
-    draw_text(draw, "MMR", (400, 290), font_size=30, anchor="mm", color=(200, 200, 200))
+    draw_gauge(bg, gauge_center, 135, mmr, max_mmr, color=accent_color, bg_color=accent_dark_color)
+    draw_text(draw, "MMR", (400, 290), font_size=30, anchor="mm", color=label_color)
     draw_text(draw, str(mmr), (400, 360), font_size=70, anchor="mm")
 
     # Stats Columns
@@ -473,49 +545,49 @@ def draw_stats_card(config):
     gap_y = 150
     
     # Avg (12P)
-    draw_text(draw, "Avg (12P)", (200, start_y), font_size=30, anchor="mm", color=(200, 200, 200))
+    draw_text(draw, "Avg (12P)", (200, start_y), font_size=30, anchor="mm", color=label_color)
     draw_text(draw, str(config.get('avg_12p', '-')), (200, start_y + 50), font_size=60, anchor="mm")
     
     # Partner (12P)
-    draw_text(draw, "Partner (12P)", (200, start_y + gap_y), font_size=30, anchor="mm", color=(200, 200, 200))
+    draw_text(draw, "Partner (12P)", (200, start_y + gap_y), font_size=30, anchor="mm", color=label_color)
     draw_text(draw, str(config.get('partner_12p', '-')), (200, start_y + gap_y + 50), font_size=60, anchor="mm")
     
     # Largest Gain
-    draw_text(draw, "Largest Gain", (200, start_y + gap_y * 2), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, str(config.get('largest_gain', '-')), (200, start_y + gap_y * 2 + 50), font_size=60, anchor="mm", color=(100, 255, 100))
+    draw_text(draw, "Largest Gain", (200, start_y + gap_y * 2), font_size=30, anchor="mm", color=label_color)
+    draw_text(draw, str(config.get('largest_gain', '-')), (200, start_y + gap_y * 2 + 50), font_size=60, anchor="mm", color=positive_color)
 
     # Middle Column
     mid_x = 500
     
     # Avg (24P)
-    draw_text(draw, "Avg (24P)", (mid_x, start_y), font_size=30, anchor="mm", color=(200, 200, 200))
+    draw_text(draw, "Avg (24P)", (mid_x, start_y), font_size=30, anchor="mm", color=label_color)
     draw_text(draw, str(config.get('avg_24p', '-')), (mid_x, start_y + 50), font_size=60, anchor="mm")
     
     # W-L
-    draw_text(draw, "W-L", (mid_x, start_y + gap_y), font_size=30, anchor="mm", color=(200, 200, 200))
+    draw_text(draw, "W-L", (mid_x, start_y + gap_y), font_size=30, anchor="mm", color=label_color)
     draw_text(draw, str(config.get('win_loss', '-')), (mid_x, start_y + gap_y + 50), font_size=60, anchor="mm")
     
     # Largest Loss
-    draw_text(draw, "Largest Loss", (mid_x, start_y + gap_y * 2), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, str(config.get('largest_loss', '-')), (mid_x, start_y + gap_y * 2 + 50), font_size=60, anchor="mm", color=(255, 80, 80))
+    draw_text(draw, "Largest Loss", (mid_x, start_y + gap_y * 2), font_size=30, anchor="mm", color=label_color)
+    draw_text(draw, str(config.get('largest_loss', '-')), (mid_x, start_y + gap_y * 2 + 50), font_size=60, anchor="mm", color=negative_color)
 
     # Right Column (Center-Right)
     right_x = 800
     
     # Peak MMR
-    draw_text(draw, "Peak MMR", (right_x, 300), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, str(config.get('peak_mmr', '-')), (right_x, 350), font_size=60, anchor="mm", color=ACCENT_RED)
+    draw_text(draw, "Peak MMR", (right_x, 300), font_size=30, anchor="mm", color=label_color)
+    draw_text(draw, str(config.get('peak_mmr', '-')), (right_x, 350), font_size=60, anchor="mm", color=accent_color)
 
     # Top Score
-    draw_text(draw, "Top Score", (right_x, start_y), font_size=30, anchor="mm", color=(200, 200, 200))
+    draw_text(draw, "Top Score", (right_x, start_y), font_size=30, anchor="mm", color=label_color)
     draw_text(draw, str(config.get('top_score', '-')), (right_x, start_y + 50), font_size=60, anchor="mm")
     
     # Events
-    draw_text(draw, "Events", (right_x, start_y + gap_y), font_size=30, anchor="mm", color=(200, 200, 200))
+    draw_text(draw, "Events", (right_x, start_y + gap_y), font_size=30, anchor="mm", color=label_color)
     draw_text(draw, str(config.get('events', '-')), (right_x, start_y + gap_y + 50), font_size=60, anchor="mm")
     
     # Rank
-    draw_text(draw, "Rank", (right_x, start_y + gap_y * 2), font_size=30, anchor="mm", color=(200, 200, 200))
+    draw_text(draw, "Rank", (right_x, start_y + gap_y * 2), font_size=30, anchor="mm", color=label_color)
     draw_text(draw, str(config.get('rank', '-')), (right_x, start_y + gap_y * 2 + 50), font_size=60, anchor="mm")
 
     # Save final image
@@ -548,6 +620,25 @@ def main():
         
         # Graph Data (List of MMR values)
         "graph_data": np.linspace(10500, 14776, 167),
+        
+        # Color Settings (all optional - defaults will be used if not specified)
+        # "accent_color": (180, 20, 40),        # Main accent color (edges, highlights)
+        # "accent_dark_color": (100, 10, 20),   # Darker accent (gauge background)
+        # "bg_gradient_start": (0, 0, 0),       # Background triangle gradient start
+        # "bg_gradient_end": (64, 62, 63),      # Background triangle gradient end
+        # "graph_color_start": (100, 100, 255), # Graph line start color (fallback)
+        # "graph_color_end": (255, 50, 50),     # Graph line end color (fallback)
+        # "positive_color": (100, 255, 100),    # Color for positive values (gains)
+        # "negative_color": (255, 80, 80),      # Color for negative values (losses)
+        # "label_color": (200, 200, 200),       # Color for stat labels
+        
+        # Graph Section Settings (for coloring by y-value sections)
+        # "graph_section_size": 1000,           # Size of each section (default: 1000)
+        # "graph_section_colors": [             # Custom colors for each section (optional)
+        #     (100, 100, 255),  # Section 0 (0-999)
+        #     (100, 255, 100),  # Section 1 (1000-1999)
+        #     ...
+        # ],
         
         # Output
         "output_path": "output/stats_card_final.png"
