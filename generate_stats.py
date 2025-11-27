@@ -619,7 +619,14 @@ def main():
         "largest_loss": "-338",
         
         # Graph Data (List of MMR values)
-        "graph_data": np.linspace(10500, 14776, 167),
+        # "graph_data": np.linspace(10500, 14776, 167),
+        "graph_data": np.concatenate([
+            np.linspace(10500, 12000, 50),
+            np.linspace(12000, 11500, 20), # Drop
+            np.linspace(11500, 13500, 60), # Rise
+            np.linspace(13500, 13000, 10), # Small drop
+            np.linspace(13000, 14776, 27)  # Final push
+        ]),
         
         # Color Settings (all optional - defaults will be used if not specified)
         # "accent_color": (180, 20, 40),        # Main accent color (edges, highlights)
