@@ -9,7 +9,7 @@ import math
 # Constants
 WIDTH = 1920
 HEIGHT = 1080
-BG_COLOR = (20, 20, 20)  # Dark gray/black
+BG_COLOR = (5, 5, 5)  # Darker black
 ACCENT_RED = (180, 20, 40)
 ACCENT_DARK_RED = (100, 10, 20)
 TEXT_COLOR = (255, 255, 255)
@@ -17,27 +17,204 @@ TEXT_COLOR = (255, 255, 255)
 FONT_PATH = os.path.join('fonts', 'RussoOne-Regular.ttf')
 
 def create_background():
-    """Creates the geometric background."""
+    """Creates the geometric background using Perturbed 3-Family Line Arrangement."""
     img = Image.new('RGB', (WIDTH, HEIGHT), BG_COLOR)
     draw = ImageDraw.Draw(img, 'RGBA')
 
-    # Draw geometric shapes (triangles/polygons) to mimic the style
-    # Large dark triangles
-    draw.polygon([(0, 0), (WIDTH // 2, 0), (0, HEIGHT)], fill=(15, 15, 15, 255))
-    draw.polygon([(WIDTH, 0), (WIDTH, HEIGHT), (WIDTH // 2, HEIGHT)], fill=(25, 25, 25, 255))
+    from shapely.geometry import LineString, Polygon, MultiPolygon, GeometryCollection
+    from shapely.ops import unary_union, polygonize
 
-    # Red accent lines/shapes
-    # Top left diagonal
-    draw.line([(0, HEIGHT * 0.6), (WIDTH * 0.4, 0)], fill=ACCENT_DARK_RED, width=3)
+    # 1. Generate Lines (3 Families)
+    lines = []
     
-    # Bottom right diagonal
-    draw.line([(WIDTH * 0.6, HEIGHT), (WIDTH, HEIGHT * 0.4)], fill=ACCENT_DARK_RED, width=3)
+    # Canvas bounds for clipping
+    canvas_box = (0, 0, WIDTH, HEIGHT)
+    canvas_poly = Polygon([(0, 0), (WIDTH, 0), (WIDTH, HEIGHT), (0, HEIGHT)])
+    
+    # Extended bounds to ensure lines cover the canvas
+    margin = 600
+    ext_min_x, ext_min_y = -margin, -margin
+    ext_max_x, ext_max_y = WIDTH + margin, HEIGHT + margin
+    
+    # Parameters for "Organic" feel
+    # Base angles (shifted from 0, 60, 120 to look less mechanical)
+    base_rotation = np.random.uniform(-15, 15)
+    angles = [0 + base_rotation, 60 + base_rotation, 120 + base_rotation]
+    
+    # Spacing
+    avg_spacing = 250
+    
+    for base_angle in angles:
+        # Convert to radians
+        theta = math.radians(base_angle)
+        
+        # Normal vector
+        nx = math.cos(theta)
+        ny = math.sin(theta)
+        
+        # Tangent vector (direction of line)
+        tx = -ny
+        ty = nx
+        
+        # Determine range of offsets to cover the extended canvas
+        # Project corners to normal axis to find min/max offset
+        corners = [
+            (ext_min_x, ext_min_y), (ext_max_x, ext_min_y),
+            (ext_max_x, ext_max_y), (ext_min_x, ext_max_y)
+        ]
+        projections = [x * nx + y * ny for x, y in corners]
+        min_p = min(projections)
+        max_p = max(projections)
+        
+        # Generate lines along the normal axis
+        current_p = min_p
+        while current_p < max_p:
+            # Add random jitter to spacing
+            spacing = avg_spacing * np.random.uniform(0.7, 1.3)
+            current_p += spacing
+            
+            # Add random jitter to angle for this specific line
+            line_angle_jitter = math.radians(np.random.uniform(-2, 2))
+            line_theta = theta + line_angle_jitter
+            lnx = math.cos(line_theta)
+            lny = math.sin(line_theta)
+            ltx = -lny
+            lty = lnx
+            
+            # Point on line
+            px = current_p * lnx
+            py = current_p * lny
+            
+            # Create long line segment
+            p1 = (px + ltx * 4000, py + lty * 4000)
+            p2 = (px - ltx * 4000, py - lty * 4000)
+            
+            lines.append(LineString([p1, p2]))
 
-    # Subtle overlay triangles
-    draw.polygon([(WIDTH * 0.3, 0), (WIDTH * 0.7, 0), (WIDTH * 0.5, HEIGHT * 0.4)], fill=(30, 30, 30, 100))
+    # 2. Polygonize
+    # Union all lines to find intersections and split them
+    all_lines = unary_union(lines)
     
-    # Bottom left red glow hint
-    draw.polygon([(0, HEIGHT), (300, HEIGHT), (0, HEIGHT - 300)], fill=(50, 10, 10, 50))
+    # Create polygons from the unioned lines
+    polys = list(polygonize(all_lines))
+    
+    # 3. Filter and Triangulate
+    final_polygons = []
+    
+    for poly in polys:
+        # Intersect with canvas
+        if not poly.intersects(canvas_poly):
+            continue
+            
+        intersection = poly.intersection(canvas_poly)
+        
+        # Handle MultiPolygon or GeometryCollection results
+        parts = []
+        if isinstance(intersection, Polygon):
+            parts.append(intersection)
+        elif isinstance(intersection, (MultiPolygon, GeometryCollection)):
+            for geom in intersection.geoms:
+                if isinstance(geom, Polygon):
+                    parts.append(geom)
+                    
+        for part in parts:
+            if part.is_empty or part.area < 100: # Filter tiny slivers
+                continue
+                
+            # Triangulate if not a triangle (approximate check by vertex count)
+            # Simplify slightly to remove collinear points that might increase vertex count
+            simplified = part.simplify(1.0)
+            coords = list(simplified.exterior.coords)
+            if coords[0] == coords[-1]:
+                coords.pop()
+                
+            if len(coords) > 3:
+                # Simple fan triangulation or ear clipping
+                # Since these are convex polygons (from line arrangement), fan from first vertex works well enough
+                # OR split by shortest diagonal for better shape
+                
+                # Let's just use a simple fan for robustness as they are convex
+                p0 = coords[0]
+                for i in range(1, len(coords) - 1):
+                    p1 = coords[i]
+                    p2 = coords[i+1]
+                    triangle = Polygon([p0, p1, p2])
+                    if not triangle.is_empty and triangle.area > 10:
+                        final_polygons.append(triangle)
+            else:
+                final_polygons.append(part)
+
+    # Helper to draw gradient polygon (Same as before)
+    def draw_gradient_polygon(draw_obj, poly_coords, color_start, color_end, steps=20):
+        # Centroid
+        cx = sum(p[0] for p in poly_coords) / len(poly_coords)
+        cy = sum(p[1] for p in poly_coords) / len(poly_coords)
+        
+        for i in range(steps):
+            ratio = i / steps
+            # Interpolate color
+            r = int(color_start[0] * (1 - ratio) + color_end[0] * ratio)
+            g = int(color_start[1] * (1 - ratio) + color_end[1] * ratio)
+            b = int(color_start[2] * (1 - ratio) + color_end[2] * ratio)
+            color = (r, g, b)
+            
+            # Interpolate points towards centroid
+            current_points = []
+            for px, py in poly_coords:
+                nx = px * (1 - ratio) + cx * ratio
+                ny = py * (1 - ratio) + cy * ratio
+                current_points.append((nx, ny))
+            
+            if len(current_points) >= 3:
+                draw_obj.polygon(current_points, fill=color)
+
+    # 4. Draw Polygons
+    c_start = (0, 0, 0)
+    c_end = (34, 32, 33)
+    
+    for poly in final_polygons:
+        coords = list(poly.exterior.coords)
+        if coords[0] == coords[-1]:
+            coords.pop()
+            
+        draw_gradient_polygon(draw, coords, c_start, c_end, steps=20)
+        
+        # Draw Tapered Edges
+        for i in range(len(coords)):
+            p_start = coords[i]
+            p_end = coords[(i + 1) % len(coords)]
+            
+            # Vector
+            vx = p_end[0] - p_start[0]
+            vy = p_end[1] - p_start[1]
+            length = math.sqrt(vx*vx + vy*vy)
+            if length == 0: continue
+            
+            # Normal vector (normalized)
+            nx = -vy / length
+            ny = vx / length
+            
+            # Midpoint
+            mx = (p_start[0] + p_end[0]) / 2
+            my = (p_start[1] + p_end[1]) / 2
+            
+            # Max width at center
+            max_width = 2.0
+            
+            poly_shape = [
+                p_start,
+                (mx + nx * max_width, my + ny * max_width),
+                p_end,
+                (mx - nx * max_width, my - ny * max_width)
+            ]
+            
+            draw.polygon(poly_shape, fill=ACCENT_RED)
+
+    # 5. Subtle Overlay/Vignette
+    draw.polygon([(0, 0), (400, 0), (0, 400)], fill=(0, 0, 0, 120))
+    draw.polygon([(WIDTH, 0), (WIDTH-400, 0), (WIDTH, 400)], fill=(0, 0, 0, 120))
+    draw.polygon([(0, HEIGHT), (0, HEIGHT-400), (400, HEIGHT)], fill=(0, 0, 0, 120))
+    draw.polygon([(WIDTH, HEIGHT), (WIDTH, HEIGHT-400), (WIDTH-400, HEIGHT)], fill=(0, 0, 0, 120))
 
     return img
 
