@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import numpy as np
 import io
+import math
 
 # Constants
 WIDTH = 1920
@@ -130,7 +131,36 @@ def draw_gauge(draw, center, radius, value, max_value, color=ACCENT_RED):
     # Progress arc
     # Calculate angle based on value (dummy logic for visual match)
     # The image shows a full arc, so we'll just draw the red arc
-    draw.arc(bbox, start=135, end=405, fill=color, width=30)
+    start_angle = 135
+    end_angle = 405
+    width = 30
+    draw.arc(bbox, start=start_angle, end=end_angle, fill=color, width=width)
+
+    # Rounded caps
+    # Convert angles to radians
+    # PIL angles are clockwise from 3 o'clock (0 degrees)
+    # Math angles are usually counter-clockwise from 3 o'clock, but here we just need to match PIL's coordinate system
+    # x = cx + r * cos(theta)
+    # y = cy + r * sin(theta)
+    
+    def get_point(angle_deg):
+        angle_rad = math.radians(angle_deg)
+        # Pillow's arc with width is drawn *inside* the bbox, so the center of the stroke
+        # is at radius - width / 2
+        effective_radius = radius - width / 2
+        x = center[0] + effective_radius * math.cos(angle_rad)
+        y = center[1] + effective_radius * math.sin(angle_rad)
+        return (x, y)
+
+    # Start cap
+    start_point = get_point(start_angle)
+    draw.ellipse([start_point[0] - width/2, start_point[1] - width/2, 
+                  start_point[0] + width/2, start_point[1] + width/2], fill=color)
+
+    # End cap
+    end_point = get_point(end_angle)
+    draw.ellipse([end_point[0] - width/2, end_point[1] - width/2, 
+                  end_point[0] + width/2, end_point[1] + width/2], fill=color)
 
 def main():
     # Create output directory if it doesn't exist
