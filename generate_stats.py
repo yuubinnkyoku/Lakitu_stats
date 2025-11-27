@@ -28,11 +28,11 @@ def create_background():
     
     # Grid parameters
     # Fewer rows/cols for larger triangles
-    rows = 8
-    cols = 8
+    rows = 6
+    cols = 6
     
     # Base scale
-    scale = 500
+    scale = 700
     
     # Random seeds for organic distortion
     seed_x = random.uniform(0, 100)
@@ -327,18 +327,13 @@ def main():
     
     # Generate Graph
     # Simulate some data that looks like the image (rising trend)
-    # Start around 10500, end around 14776, with some noise
-    np.random.seed(42)
+    # Start around 10500, end around 14776
     # Events 2-167 means 166 events played? Or just 0 to 167 range. 
     # Image x-axis goes up to 160+, so let's use 167 points.
     x = np.linspace(0, 167, 167)
-    # Base trend
-    y = 10500 + (x * 25) 
-    # Add noise/fluctuations
-    noise = np.cumsum(np.random.randn(167) * 50)
-    y = y + noise
-    # Ensure it ends near 14776 as per image
-    y = y - (y[-1] - 14776)
+    
+    # Create a straight line from start to end (no noise)
+    y = np.linspace(10500, 14776, 167)
     
     graph_img = create_graph(y)
     
