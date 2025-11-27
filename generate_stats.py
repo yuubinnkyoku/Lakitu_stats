@@ -201,9 +201,18 @@ def create_graph(data_points):
     plt.style.use('dark_background')
     
     # Create figure with transparent background
-    fig, ax = plt.subplots(figsize=(8, 5), dpi=100)
+    # Target size: 900x600
+    width_px = 900
+    height_px = 600
+    dpi = 100
+    fig, ax = plt.subplots(figsize=(width_px/dpi, height_px/dpi), dpi=dpi)
     fig.patch.set_alpha(0.0)
     ax.patch.set_alpha(0.0)
+    
+    # Define margins to fix the plot area
+    m_left, m_right = 0.12, 0.95
+    m_top, m_bottom = 0.95, 0.15
+    fig.subplots_adjust(left=m_left, right=m_right, top=m_top, bottom=m_bottom)
     
     # Plot data
     x = range(len(data_points))
@@ -254,11 +263,24 @@ def create_graph(data_points):
     
     # Save to buffer
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', bbox_inches='tight', transparent=True)
+    # Remove bbox_inches='tight' to keep fixed size and positioning
+    plt.savefig(buf, format='png', transparent=True)
     buf.seek(0)
     plt.close(fig)
     
-    return Image.open(buf)
+    # Calculate plot area in pixels for the blur effect
+    # PIL y-axis is top-down, Matplotlib is bottom-up
+    # Top pixel = (1 - top) * height
+    # Bottom pixel = (1 - bottom) * height
+    
+    plot_box = (
+        int(m_left * width_px),
+        int((1 - m_top) * height_px),
+        int(m_right * width_px),
+        int((1 - m_bottom) * height_px)
+    )
+    
+    return Image.open(buf), plot_box
 
 def draw_text(draw, text, position, font_size=20, color=TEXT_COLOR, anchor="la", font_path=None):
     """Draws text with a given font."""
@@ -335,22 +357,25 @@ def main():
     # Create a straight line from start to end (no noise)
     y = np.linspace(10500, 14776, 167)
     
-    graph_img = create_graph(y)
+    graph_img, plot_box = create_graph(y)
     
-    # Paste graph onto background
-    # Position roughly where it is in the image (right side)
-    # Resize graph if needed to fit
-    graph_width = 900
-    graph_height = 600
-    graph_img = graph_img.resize((graph_width, graph_height), Image.Resampling.LANCZOS)
+    # Position for the graph
+    graph_x, graph_y = 950, 350
     
     # --- Frosted Glass Effect for Graph ---
-    # Define the area for the graph
-    graph_x, graph_y = 950, 350
-    box = (graph_x, graph_y, graph_x + graph_width, graph_y + graph_height)
+    # Calculate the absolute coordinates for the blur on the background
+    # plot_box is relative to the graph image (0,0 is top-left of graph image)
+    # We need to offset it by graph_x, graph_y
+    
+    blur_box = (
+        graph_x + plot_box[0],
+        graph_y + plot_box[1],
+        graph_x + plot_box[2],
+        graph_y + plot_box[3]
+    )
     
     # 1. Crop the background
-    crop = bg.crop(box)
+    crop = bg.crop(blur_box)
     
     # 2. Apply Blur
     blur = crop.filter(ImageFilter.GaussianBlur(radius=15))
@@ -363,8 +388,9 @@ def main():
     blur.paste(overlay, (0, 0), overlay)
     
     # 4. Paste back onto background
-    bg.paste(blur, box)
-
+    bg.paste(blur, blur_box)
+    
+    # 5. Paste graph on top
     bg.paste(graph_img, (graph_x, graph_y), graph_img)
 
     # --- Text and Stats ---
