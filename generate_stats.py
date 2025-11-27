@@ -384,7 +384,10 @@ def draw_gauge(img, center, radius, value, max_value, color=ACCENT_RED):
     
     img.paste(temp_img, (paste_x, paste_y), temp_img)
 
-def main():
+def draw_stats_card(config):
+    """
+    Generates the stats card image based on the provided configuration.
+    """
     # Create output directory if it doesn't exist
     if not os.path.exists('output'):
         os.makedirs('output')
@@ -394,16 +397,12 @@ def main():
     draw = ImageDraw.Draw(bg)
     
     # Generate Graph
-    # Simulate some data that looks like the image (rising trend)
-    # Start around 10500, end around 14776
-    # Events 2-167 means 166 events played? Or just 0 to 167 range. 
-    # Image x-axis goes up to 160+, so let's use 167 points.
-    x = np.linspace(0, 167, 167)
-    
-    # Create a straight line from start to end (no noise)
-    y = np.linspace(10500, 14776, 167)
-    
-    graph_img, plot_box = create_graph(y)
+    graph_data = config.get('graph_data', [])
+    if len(graph_data) == 0:
+        # Default dummy data if none provided
+        graph_data = np.linspace(10000, 15000, 100)
+
+    graph_img, plot_box = create_graph(graph_data)
     
     # Position for the graph
     graph_x, graph_y = 950, 350
@@ -447,8 +446,8 @@ def main():
     draw_text(draw, "MARIO KART\nWORLD", (200, 100), 40, anchor="mm")
     
     # Player Name & Season
-    draw_text(draw, "Kusaan", (WIDTH // 2, 80), font_size=60, anchor="mm")
-    draw_text(draw, "Season 1", (WIDTH // 2, 140), font_size=40, anchor="mm")
+    draw_text(draw, config.get('player_name', 'Player'), (WIDTH // 2, 80), font_size=60, anchor="mm")
+    draw_text(draw, config.get('season', 'Season X'), (WIDTH // 2, 140), font_size=40, anchor="mm")
     
     # Flag Placeholder
     draw.rectangle([WIDTH // 2 - 40, 170, WIDTH // 2 + 40, 230], fill=(255, 255, 255))
@@ -456,13 +455,15 @@ def main():
     
     # Character Icon Placeholder (Top Right)
     draw.rectangle([WIDTH - 200, 50, WIDTH - 50, 200], fill=(0, 0, 0), outline=(255, 255, 255))
-    draw_text(draw, "Lakitu", (WIDTH - 125, 125), font_size=30, anchor="mm")
+    draw_text(draw, config.get('character_name', 'Character'), (WIDTH - 125, 125), font_size=30, anchor="mm")
 
     # MMR Gauge (Left Side)
     gauge_center = (400, 350)
-    draw_gauge(bg, gauge_center, 135, 14776, 15000)
+    mmr = config.get('mmr', 0)
+    max_mmr = config.get('max_mmr_gauge', 20000)
+    draw_gauge(bg, gauge_center, 135, mmr, max_mmr)
     draw_text(draw, "MMR", (400, 290), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "14776", (400, 360), font_size=70, anchor="mm")
+    draw_text(draw, str(mmr), (400, 360), font_size=70, anchor="mm")
 
     # Stats Columns
     # Left Column
@@ -471,53 +472,86 @@ def main():
     
     # Avg (12P)
     draw_text(draw, "Avg (12P)", (200, start_y), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "87.5", (200, start_y + 50), font_size=60, anchor="mm")
+    draw_text(draw, str(config.get('avg_12p', '-')), (200, start_y + 50), font_size=60, anchor="mm")
     
     # Partner (12P)
     draw_text(draw, "Partner (12P)", (200, start_y + gap_y), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "83.0", (200, start_y + gap_y + 50), font_size=60, anchor="mm")
+    draw_text(draw, str(config.get('partner_12p', '-')), (200, start_y + gap_y + 50), font_size=60, anchor="mm")
     
     # Largest Gain
     draw_text(draw, "Largest Gain", (200, start_y + gap_y * 2), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "+182", (200, start_y + gap_y * 2 + 50), font_size=60, anchor="mm", color=(100, 255, 100))
+    draw_text(draw, str(config.get('largest_gain', '-')), (200, start_y + gap_y * 2 + 50), font_size=60, anchor="mm", color=(100, 255, 100))
 
     # Middle Column
     mid_x = 500
     
     # Avg (24P)
     draw_text(draw, "Avg (24P)", (mid_x, start_y), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "87.6", (mid_x, start_y + 50), font_size=60, anchor="mm")
+    draw_text(draw, str(config.get('avg_24p', '-')), (mid_x, start_y + 50), font_size=60, anchor="mm")
     
     # W-L
     draw_text(draw, "W-L", (mid_x, start_y + gap_y), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "120-49", (mid_x, start_y + gap_y + 50), font_size=60, anchor="mm")
+    draw_text(draw, str(config.get('win_loss', '-')), (mid_x, start_y + gap_y + 50), font_size=60, anchor="mm")
     
     # Largest Loss
     draw_text(draw, "Largest Loss", (mid_x, start_y + gap_y * 2), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "-338", (mid_x, start_y + gap_y * 2 + 50), font_size=60, anchor="mm", color=(255, 80, 80))
+    draw_text(draw, str(config.get('largest_loss', '-')), (mid_x, start_y + gap_y * 2 + 50), font_size=60, anchor="mm", color=(255, 80, 80))
 
     # Right Column (Center-Right)
     right_x = 800
     
     # Peak MMR
     draw_text(draw, "Peak MMR", (right_x, 300), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "14776", (right_x, 350), font_size=60, anchor="mm", color=ACCENT_RED)
+    draw_text(draw, str(config.get('peak_mmr', '-')), (right_x, 350), font_size=60, anchor="mm", color=ACCENT_RED)
 
     # Top Score
     draw_text(draw, "Top Score", (right_x, start_y), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "123", (right_x, start_y + 50), font_size=60, anchor="mm")
+    draw_text(draw, str(config.get('top_score', '-')), (right_x, start_y + 50), font_size=60, anchor="mm")
     
     # Events
     draw_text(draw, "Events", (right_x, start_y + gap_y), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "2-167", (right_x, start_y + gap_y + 50), font_size=60, anchor="mm")
+    draw_text(draw, str(config.get('events', '-')), (right_x, start_y + gap_y + 50), font_size=60, anchor="mm")
     
     # Rank
     draw_text(draw, "Rank", (right_x, start_y + gap_y * 2), font_size=30, anchor="mm", color=(200, 200, 200))
-    draw_text(draw, "1", (right_x, start_y + gap_y * 2 + 50), font_size=60, anchor="mm")
+    draw_text(draw, str(config.get('rank', '-')), (right_x, start_y + gap_y * 2 + 50), font_size=60, anchor="mm")
 
     # Save final image
-    bg.save('output/stats_card_final.png')
-    print("Stats card generated and saved to output/stats_card_final.png")
+    output_path = config.get('output_path', 'output/stats_card_final.png')
+    bg.save(output_path)
+    print(f"Stats card generated and saved to {output_path}")
+
+def main():
+    # Example Configuration
+    # You can modify these values to generate different cards
+    config = {
+        "player_name": "Kusaan",
+        "season": "Season 1",
+        "character_name": "Lakitu",
+        
+        # Stats
+        "mmr": 14776,
+        "max_mmr_gauge": 15000,
+        "peak_mmr": 14776,
+        "rank": 1,
+        
+        "avg_12p": "87.5",
+        "avg_24p": "87.6",
+        "partner_12p": "83.0",
+        "win_loss": "120-49",
+        "top_score": 123,
+        "events": "2-167",
+        "largest_gain": "+182",
+        "largest_loss": "-338",
+        
+        # Graph Data (List of MMR values)
+        "graph_data": np.linspace(10500, 14776, 167),
+        
+        # Output
+        "output_path": "output/stats_card_final.png"
+    }
+    
+    draw_stats_card(config)
 
 if __name__ == "__main__":
     main()
