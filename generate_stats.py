@@ -151,7 +151,7 @@ def create_background():
 
     # 3. Draw Polygons
     c_start = (0, 0, 0)
-    c_end = (34, 32, 33) # #222021
+    c_end = (64, 62, 63)
     
     for poly in visible_polygons:
         draw_gradient_polygon(draw, poly, c_start, c_end, steps=40)
