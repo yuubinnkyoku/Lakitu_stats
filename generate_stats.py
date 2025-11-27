@@ -31,7 +31,7 @@ def create_background():
     rows = 6
     cols = 6
     
-    # Base scale
+    # Base scale - fixed minimum size to prevent small triangles
     scale = 700
     
     # Random seeds for organic distortion
@@ -40,7 +40,8 @@ def create_background():
     seed_rot = random.uniform(0, 100)
     
     # Global rotation/offset to break alignment
-    base_rotation = random.uniform(-0.3, 0.3)
+    # Reduced rotation range to prevent extreme distortion
+    base_rotation = random.uniform(-0.15, 0.15)
     offset_x = WIDTH / 2
     offset_y = HEIGHT / 2
     
@@ -48,18 +49,19 @@ def create_background():
         """Calculates a smooth, organic displacement for a point (x, y)."""
         # Combine multiple sine waves with different frequencies and phases
         # to simulate a "liquid" or "cloth-like" distortion.
+        # Reduced amplitude to prevent triangles from becoming too small
         
-        # Large low-frequency waves (The "Flow")
-        dx = math.sin(x / 1200 + seed_x) * 200 + math.cos(y / 1500 + seed_y) * 200
-        dy = math.cos(x / 1300 + seed_y) * 200 + math.sin(y / 1100 + seed_x) * 200
+        # Large low-frequency waves (The "Flow") - reduced amplitude
+        dx = math.sin(x / 1200 + seed_x) * 120 + math.cos(y / 1500 + seed_y) * 120
+        dy = math.cos(x / 1300 + seed_y) * 120 + math.sin(y / 1100 + seed_x) * 120
         
-        # Medium frequency waves (The "Ripple")
-        dx += math.sin(x / 600 + seed_y * 2) * 80
-        dy += math.cos(y / 700 + seed_x * 2) * 80
+        # Medium frequency waves (The "Ripple") - reduced amplitude
+        dx += math.sin(x / 600 + seed_y * 2) * 50
+        dy += math.cos(y / 700 + seed_x * 2) * 50
         
-        # Small jitter (The "Imperfection")
-        dx += math.sin(x / 200 + y / 200) * 20
-        dy += math.cos(x / 200 - y / 200) * 20
+        # Small jitter (The "Imperfection") - reduced amplitude
+        dx += math.sin(x / 200 + y / 200) * 15
+        dy += math.cos(x / 200 - y / 200) * 15
         
         return dx, dy
 
