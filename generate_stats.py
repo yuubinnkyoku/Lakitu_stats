@@ -1,5 +1,5 @@
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import numpy as np
@@ -344,7 +344,28 @@ def main():
     graph_height = 600
     graph_img = graph_img.resize((graph_width, graph_height), Image.Resampling.LANCZOS)
     
-    bg.paste(graph_img, (950, 350), graph_img)
+    # --- Frosted Glass Effect for Graph ---
+    # Define the area for the graph
+    graph_x, graph_y = 950, 350
+    box = (graph_x, graph_y, graph_x + graph_width, graph_y + graph_height)
+    
+    # 1. Crop the background
+    crop = bg.crop(box)
+    
+    # 2. Apply Blur
+    blur = crop.filter(ImageFilter.GaussianBlur(radius=15))
+    
+    # 3. Apply Dark Overlay (Semi-transparent)
+    # Create a solid color image with alpha
+    overlay = Image.new('RGBA', blur.size, (40, 40, 40, 100))
+    
+    # Composite overlay onto blur
+    blur.paste(overlay, (0, 0), overlay)
+    
+    # 4. Paste back onto background
+    bg.paste(blur, box)
+
+    bg.paste(graph_img, (graph_x, graph_y), graph_img)
 
     # --- Text and Stats ---
     
