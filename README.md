@@ -3,4 +3,6 @@
 ![](output/stats_card_final.png)
 
 本家
-![](output/original.png)
+![](output/original_kusaan.png)
+
+![](output/original_yuubinnkyoku.png)
