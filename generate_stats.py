@@ -127,9 +127,9 @@ def create_background():
 
     # Helper to draw gradient polygon
     def draw_gradient_polygon(draw_obj, poly_coords, color_start, color_end, steps=40):
-        # Centroid
-        cx = sum(p[0] for p in poly_coords) / len(poly_coords)
-        cy = sum(p[1] for p in poly_coords) / len(poly_coords)
+        # Choose a random vertex as the "center" (convergence point)
+        target_vertex = random.choice(poly_coords)
+        tx, ty = target_vertex
         
         for i in range(steps):
             ratio = i / steps
@@ -139,11 +139,11 @@ def create_background():
             b = int(color_start[2] * (1 - ratio) + color_end[2] * ratio)
             color = (r, g, b)
             
-            # Interpolate points towards centroid
+            # Interpolate points towards target vertex
             current_points = []
             for px, py in poly_coords:
-                nx = px * (1 - ratio) + cx * ratio
-                ny = py * (1 - ratio) + cy * ratio
+                nx = px * (1 - ratio) + tx * ratio
+                ny = py * (1 - ratio) + ty * ratio
                 current_points.append((nx, ny))
             
             if len(current_points) >= 3:
