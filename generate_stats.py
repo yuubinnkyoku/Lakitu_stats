@@ -326,13 +326,17 @@ def draw_gauge(img, center, radius, value, max_value, color=ACCENT_RED):
         temp_center[1] + temp_radius
     ]
     
-    # Background arc (darker)
-    temp_draw.arc(bbox, start=135, end=405, fill=(50, 10, 20), width=int(temp_width))
+    # Background arc (darker/remaining)
+    bg_color = (100, 40, 50) # Light red for remaining part
+    temp_draw.arc(bbox, start=135, end=405, fill=bg_color, width=int(temp_width))
     
     # Progress arc
     start_angle = 135
-    end_angle = 405
-    temp_draw.arc(bbox, start=start_angle, end=end_angle, fill=color, width=int(temp_width))
+    ratio = min(1.0, max(0.0, value / max_value))
+    end_angle = start_angle + (405 - 135) * ratio
+    
+    if ratio > 0:
+        temp_draw.arc(bbox, start=start_angle, end=end_angle, fill=color, width=int(temp_width))
 
     # Rounded caps
     def get_point(angle_deg):
@@ -343,16 +347,27 @@ def draw_gauge(img, center, radius, value, max_value, color=ACCENT_RED):
         y = temp_center[1] + effective_radius * math.sin(angle_rad)
         return (x, y)
 
-    # Start cap
-    start_point = get_point(start_angle)
     cap_radius = temp_width / 2
-    temp_draw.ellipse([start_point[0] - cap_radius, start_point[1] - cap_radius, 
-                       start_point[0] + cap_radius, start_point[1] + cap_radius], fill=color)
 
-    # End cap
-    end_point = get_point(end_angle)
-    temp_draw.ellipse([end_point[0] - cap_radius, end_point[1] - cap_radius, 
-                       end_point[0] + cap_radius, end_point[1] + cap_radius], fill=color)
+    # Background caps
+    start_point = get_point(135)
+    temp_draw.ellipse([start_point[0] - cap_radius, start_point[1] - cap_radius, 
+                       start_point[0] + cap_radius, start_point[1] + cap_radius], fill=bg_color)
+    
+    bg_end_point = get_point(405)
+    temp_draw.ellipse([bg_end_point[0] - cap_radius, bg_end_point[1] - cap_radius, 
+                       bg_end_point[0] + cap_radius, bg_end_point[1] + cap_radius], fill=bg_color)
+
+    # Progress caps
+    if ratio > 0:
+        # Start cap (overwrites background start cap)
+        temp_draw.ellipse([start_point[0] - cap_radius, start_point[1] - cap_radius, 
+                           start_point[0] + cap_radius, start_point[1] + cap_radius], fill=color)
+
+        # End cap
+        end_point = get_point(end_angle)
+        temp_draw.ellipse([end_point[0] - cap_radius, end_point[1] - cap_radius, 
+                           end_point[0] + cap_radius, end_point[1] + cap_radius], fill=color)
                        
     # Resize down
     target_size = (size, size)
@@ -445,7 +460,7 @@ def main():
 
     # MMR Gauge (Left Side)
     gauge_center = (400, 350)
-    draw_gauge(bg, gauge_center, 135, 14776, 20000)
+    draw_gauge(bg, gauge_center, 135, 14776, 15000)
     draw_text(draw, "MMR", (400, 290), font_size=30, anchor="mm", color=(200, 200, 200))
     draw_text(draw, "14776", (400, 360), font_size=70, anchor="mm")
 
